@@ -1,28 +1,54 @@
 document.addEventListener("DOMContentLoaded", () => {
-    let mySymbol = null; // Store the assigned player symbol (X or O)
+    let mySymbol = null;
     let currentPlayer = "X";
+    let gameActive = true;
+    const socket = io();
     const cells = document.querySelectorAll(".cell");
     const statusText = document.getElementById("status");
     const restartButton = document.getElementById("restart");
-    let gameActive = true;
-    const socket = io();
+    const lobby = document.getElementById("lobby");
+    const playerInfo = document.getElementById("player-info");
+    const playersDisplay = document.getElementById("players-display");
+    const clickSound = new Audio("click.mp3");
+    
+    function cellClick(event) {
+        if (!gameActive || mySymbol !== currentPlayer) return;
+        let cell = event.target;
+        if (cell.textContent === "") {
+            clickSound.play();
+            socket.emit("move", { cellId: cell.id, player: mySymbol });
+        }
+    }
 
-    // Receive player assignment from the server
-    socket.on("assign_player", (symbol) => {
-        mySymbol = symbol; // Assign player symbol
-        statusText.textContent = `You are Player ${mySymbol}`;
+    window.joinGame = () => {
+        let username = document.getElementById("username").value.trim();
+        if (username) {
+            socket.emit("join_game", username);
+            lobby.style.display = "none";
+        }
+    };
+
+    socket.on("assign_player", (data) => {
+        mySymbol = data.symbol;
+        playersDisplay.textContent = `Player X: ${data.symbol === "X" ? data.username : "Waiting..."} vs. Player O: ${data.symbol === "O" ? data.username : "Waiting..."}`;
+        playerInfo.style.display = "block";
     });
+    
 
-    // Show a "Game Full" message if a third player tries to join
+    socket.on("update_players", (data) => {
+        playersDisplay.textContent = `Player X: ${data.X ? data.X.username : "Waiting..."} vs. Player O: ${data.O ? data.O.username : "Waiting..."}`;
+    });
+    
+    
+
     socket.on("game_full", () => {
         statusText.textContent = "Game is full. Please try again later.";
     });
 
-    // Winning conditions
     const winConditions = [
-        [0, 1, 2], [3, 4, 5], [6, 7, 8], // Rows
-        [0, 3, 6], [1, 4, 7], [2, 5, 8], // Columns
-        [0, 4, 8], [2, 4, 6] // Diagonals
+        [0, 1, 2], [3, 4, 5], [6, 7, 8],
+        [0, 3, 6], [1, 4, 7], [2, 5, 8],
+        [0, 4, 8], [2, 4, 6]
     ];
 
     function checkWinner() {
@@ -45,14 +71,6 @@ document.addEventListener("DOMContentLoaded", () => {
         return [...cells].every(cell => cell.textContent !== "");
     }
 
-    function cellClick(event) {
-        if (!gameActive || mySymbol !== currentPlayer) return; // Only allow the correct player to move
-        let cell = event.target;
-        if (cell.textContent === "") {
-            socket.emit("move", { cellId: cell.id, player: mySymbol });
-        }
-    }
-
     socket.on("update_board", (data) => {
         let cell = document.getElementById(data.cellId);
         if (cell.textContent === "") {
@@ -65,19 +83,16 @@ document.addEventListener("DOMContentLoaded", () => {
                 gameActive = false;
                 return;
             }
-
             currentPlayer = data.player === "X" ? "O" : "X";
             statusText.textContent = `Player ${currentPlayer}'s turn`;
         }
     });
 
-    // Restart Game Logic
     restartButton.addEventListener("click", () => {
-        socket.emit("restart_game"); // Send restart event
+        socket.emit("restart_game");
     });
 
     socket.on("restart", () => {
-        // Reset the game
         cells.forEach(cell => {
             cell.textContent = "";
             cell.classList.remove("taken");

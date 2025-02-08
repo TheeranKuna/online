@@ -10,21 +10,25 @@ players = {}  # Dictionary to store player roles (X or O)
 def index():
     return render_template('index.html')
 
-@socketio.on('connect')
-def handle_connect():
-    """ Assign X to the first player, O to the second. Reject the third player. """
+@socketio.on('join_game')
+def handle_join_game(username):
+    """ Assign X to first player, O to second, prevent third. """
     if len(players) < 2:
-        player_symbol = "X" if "X" not in players.values() else "O"
-        players[request.sid] = player_symbol
-        emit('assign_player', player_symbol)
+        symbol = "X" if "X" not in players else "O"
+        players[symbol] = {"username": username, "sid": request.sid}
+        emit('assign_player', {"symbol": symbol, "username": username})
+        emit('update_players', players, broadcast=True)
     else:
         emit('game_full')
 
 @socketio.on('disconnect')
 def handle_disconnect():
     """ Remove the player from the game when they leave. """
-    if request.sid in players:
-        del players[request.sid]
+    for symbol, data in list(players.items()):
+        if data["sid"] == request.sid:
+            del players[symbol]
+            emit('update_players', players, broadcast=True)
+            break
 
 @socketio.on('move')
 def handle_move(data):

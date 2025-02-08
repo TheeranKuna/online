@@ -66,10 +66,18 @@
             background-color: #0056b3;
         }
     </style>
-
 </head>
 <body>
     <h1>Tic-Tac-Toe</h1>
+    <div id="lobby">
+        <input type="text" id="username" placeholder="Enter your name">
+        <button onclick="joinGame()">Join Game</button>
+    </div>
+
+    <div id="player-info" style="display: none;">
+        <h2 id="players-display"></h2>
+    </div>
+    
     <div class="board">
         <div class="cell" id="0"></div>
         <div class="cell" id="1"></div>
@@ -81,6 +89,7 @@
         <div class="cell" id="7"></div>
         <div class="cell" id="8"></div>
     </div>
+    
     <p id="status">Player X's turn</p>
     <button id="restart">Restart Game</button>
 
